@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function roleDoc(uid) {
+      return get(/databases/$(database)/documents/user_roles/$(uid));
+    }
+
+    function hasOwnRoleDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/user_roles/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return hasOwnRoleDoc() && roleDoc(request.auth.uid).data.role == 'admin';
+    }
+
+    match /user_roles/{uid} {
+      allow get: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+
+      // Users can create only their own initial viewer role document.
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && !exists(/databases/$(database)/documents/user_roles/$(uid))
+        && request.resource.data.keys().hasOnly(['role', 'createdAt', 'updatedAt', 'updatedBy'])
+        && request.resource.data.role == 'viewer';
+
+      // Role changes are restricted to admins.
+      allow update, delete: if isAdmin();
+    }
+
+    match /doc_notes/{noteId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

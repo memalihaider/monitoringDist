@@ -1,0 +1,49 @@
+[debug] [2026-03-29T10:29:34.409Z] [Firebase Plugin] Activating Firebase extension.
+[debug] [2026-03-29T10:29:39.234Z] [Firebase Plugin] requireAuthWrapper
+[debug] [2026-03-29T10:29:39.236Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-29T10:29:39.236Z] > authorizing via signed-in user (largifysolutions@gmail.com)
+[debug] [2026-03-29T10:29:39.240Z] Checked if tokens are valid: false, expires at: 1774746352973
+[debug] [2026-03-29T10:29:39.240Z] Checked if tokens are valid: false, expires at: 1774746352973
+[debug] [2026-03-29T10:29:39.241Z] > refreshing access token with scopes: []
+[debug] [2026-03-29T10:29:39.243Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-03-29T10:29:39.243Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[info] [Firebase Plugin] Starting Data Connect toolkit (version 3.2.1) on port 50003
+[debug] [2026-03-29T10:29:40.627Z] I0329 15:29:40.615783   30831 control.go:100] [projects/emulator/locations/emulator/services/monitoringsolutions 7c09] UpdateResources(): done
+Main schema: sources: schema/schema.gql [1992B] 
+Connector "example": sources: example/mutations.gql [1243B] example/queries.gql [1801B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0329 15:29:40.615783   30831 control.go:100] [projects/emulator/locations/emulator/services/monitoringsolutions 7c09] UpdateResources(): done\nMain schema: sources: schema/schema.gql [1992B] \nConnector \"example\": sources: example/mutations.gql [1243B] example/queries.gql [1801B] \n"}}
+[debug] [2026-03-29T10:29:40.628Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"dataconnect"},"message":"Ignoring unsupported arg: auto_download"}}
+[debug] [2026-03-29T10:29:40.628Z] Ignoring unsupported arg: port {"metadata":{"emulator":{"name":"dataconnect"},"message":"Ignoring unsupported arg: port"}}
+[debug] [2026-03-29T10:29:40.628Z] Starting Data Connect Emulator with command {"binary":"/Users/macbookpro/.cache/firebase/emulators/dataconnect-emulator-3.2.1","args":["--logtostderr","-v=2","dev","--listen=localhost:50003","--config_dir=/Users/macbookpro/Desktop/monitoring_solutions/dataconnect","--enable_output_schema_extensions=true","--enable_output_generated_sdk=true"],"optionalArgs":["listen","config_dir","enable_output_schema_extensions","enable_output_generated_sdk"],"joinArgs":true,"shell":false,"port":9399} {"metadata":{"emulator":{"name":"dataconnect"},"message":"Starting Data Connect Emulator with command {\"binary\":\"/Users/macbookpro/.cache/firebase/emulators/dataconnect-emulator-3.2.1\",\"args\":[\"--logtostderr\",\"-v=2\",\"dev\",\"--listen=localhost:50003\",\"--config_dir=/Users/macbookpro/Desktop/monitoring_solutions/dataconnect\",\"--enable_output_schema_extensions=true\",\"--enable_output_generated_sdk=true\"],\"optionalArgs\":[\"listen\",\"config_dir\",\"enable_output_schema_extensions\",\"enable_output_generated_sdk\"],\"joinArgs\":true,\"shell\":false,\"port\":9399}"}}
+[info] i  dataconnect: Data Connect Emulator logging to dataconnect-debug.log {"metadata":{"emulator":{"name":"dataconnect"},"message":"Data Connect Emulator logging to dataconnect-debug.log"}}
+[debug] [2026-03-29T10:29:40.726Z] I0329 15:29:40.679120   30832 load.go:31] Reloading schema and connectors...
+I0329 15:29:40.704973   30832 control.go:100] [projects/emulator/locations/emulator/services/monitoringsolutions 585a] UpdateResources(): done
+Main schema: sources: schema/schema.gql [1992B] 
+Connector "example": sources: example/mutations.gql [1243B] example/queries.gql [1801B] 
+I0329 15:29:40.724653   30832 codegen.go:80] [connector "example" javascriptSdk] Generating sources into "/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-generated"
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0329 15:29:40.679120   30832 load.go:31] Reloading schema and connectors...\nI0329 15:29:40.704973   30832 control.go:100] [projects/emulator/locations/emulator/services/monitoringsolutions 585a] UpdateResources(): done\nMain schema: sources: schema/schema.gql [1992B] \nConnector \"example\": sources: example/mutations.gql [1243B] example/queries.gql [1801B] \nI0329 15:29:40.724653   30832 codegen.go:80] [connector \"example\" javascriptSdk] Generating sources into \"/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-generated\"\n"}}
+[debug] [2026-03-29T10:29:40.783Z] I0329 15:29:40.774016   30832 codegen.go:80] [connector "example" adminSdk] Generating sources into "/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-admin-generated"
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0329 15:29:40.774016   30832 codegen.go:80] [connector \"example\" adminSdk] Generating sources into \"/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-admin-generated\"\n"}}
+[debug] [2026-03-29T10:29:40.837Z] I0329 15:29:40.820786   30832 collector.go:107] schema extensions wrote into "/Users/macbookpro/Desktop/monitoring_solutions/dataconnect/.dataconnect/schema"
+Generated sources: main/input.gql [28173B] prelude.gql [80731B] main/relation.gql [14318B] main/query.gql [5099B] main/mutation.gql [13679B] main/implicit.gql [1261B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0329 15:29:40.820786   30832 collector.go:107] schema extensions wrote into \"/Users/macbookpro/Desktop/monitoring_solutions/dataconnect/.dataconnect/schema\"\nGenerated sources: main/input.gql [28173B] prelude.gql [80731B] main/relation.gql [14318B] main/query.gql [5099B] main/mutation.gql [13679B] main/implicit.gql [1261B] \n"}}
+[debug] [2026-03-29T10:29:40.850Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-03-29T10:29:40.851Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-29T10:29:40.898Z] [Firebase Plugin] User found:  largifysolutions@gmail.com
+[info] [Firebase Plugin] (Core:Project) New user detected, fetching projects
+[debug] [2026-03-29T10:29:40.899Z] Checked if tokens are valid: true, expires at: 1774783779851
+[debug] [2026-03-29T10:29:40.900Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2026-03-29T10:29:40.903Z] I0329 15:29:40.850869   30832 collector.go:107] connector "example" javascriptSdk wrote into "/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-generated"
+Generated sources: index.cjs.js [4059B] react/README.md [48299B] .guides/config.json [236B] esm/index.esm.js [3569B] react/index.d.ts [3961B] react/package.json [460B] .guides/usage.md [3489B] react/index.cjs.js [3439B] react/esm/index.esm.js [3269B] .guides/setup.md [1682B] index.d.ts [8025B] esm/package.json [17B] package.json [863B] README.md [40931B] react/esm/package.json [17B] 
+I0329 15:29:40.855149   30832 installsdk.go:55] Package @dataconnect/generated is already installed. Skipping installation
+I0329 15:29:40.898176   30832 collector.go:107] connector "example" adminSdk wrote into "/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-admin-generated"
+Generated sources: index.d.ts [7666B] esm/index.esm.js [2989B] esm/package.json [17B] index.cjs.js [3282B] package.json [632B] 
+I0329 15:29:40.902723   30832 installsdk.go:55] Package @dataconnect/admin-generated is already installed. Skipping installation
+I0329 15:29:40.902768   30832 load.go:109] Finished reloading
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0329 15:29:40.850869   30832 collector.go:107] connector \"example\" javascriptSdk wrote into \"/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-generated\"\nGenerated sources: index.cjs.js [4059B] react/README.md [48299B] .guides/config.json [236B] esm/index.esm.js [3569B] react/index.d.ts [3961B] react/package.json [460B] .guides/usage.md [3489B] react/index.cjs.js [3439B] react/esm/index.esm.js [3269B] .guides/setup.md [1682B] index.d.ts [8025B] esm/package.json [17B] package.json [863B] README.md [40931B] react/esm/package.json [17B] \nI0329 15:29:40.855149   30832 installsdk.go:55] Package @dataconnect/generated is already installed. Skipping installation\nI0329 15:29:40.898176   30832 collector.go:107] connector \"example\" adminSdk wrote into \"/Users/macbookpro/Desktop/monitoring_solutions/src/dataconnect-admin-generated\"\nGenerated sources: index.d.ts [7666B] esm/index.esm.js [2989B] esm/package.json [17B] index.cjs.js [3282B] package.json [632B] \nI0329 15:29:40.902723   30832 installsdk.go:55] Package @dataconnect/admin-generated is already installed. Skipping installation\nI0329 15:29:40.902768   30832 load.go:109] Finished reloading\n"}}
+[debug] [2026-03-29T10:29:40.923Z] I0329 15:29:40.905673   30832 dev.go:104] Listening on address (HTTP + gRPC): 127.0.0.1:50003
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0329 15:29:40.905673   30832 dev.go:104] Listening on address (HTTP + gRPC): 127.0.0.1:50003\n"}}
+[debug] [2026-03-29T10:29:41.095Z] I0329 15:29:41.095596   30832 engine.go:210] [projects/emulator/locations/emulator/services/monitoringsolutions 585a] ExecuteGraphqlRead query IntrospectionQuery: succeeded. 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0329 15:29:41.095596   30832 engine.go:210] [projects/emulator/locations/emulator/services/monitoringsolutions 585a] ExecuteGraphqlRead query IntrospectionQuery: succeeded. \n"}}
+[debug] [2026-03-29T10:29:41.739Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2026-03-29T10:29:41.740Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
