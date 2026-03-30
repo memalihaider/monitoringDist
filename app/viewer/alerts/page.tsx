@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
 import { AlertTriangle, Info, ShieldAlert } from "lucide-react";
 
 type AlertEntry = {
@@ -33,7 +34,7 @@ export default function ViewerAlertsPage() {
 
     async function fetchAlerts() {
       try {
-        const res = await fetch("/api/prometheus/query?q=alerts");
+        const res = await authenticatedFetch("/api/prometheus/query?q=alerts");
         const data = (await res.json()) as PrometheusQueryResponse;
         const results = data.data?.result || [];
 

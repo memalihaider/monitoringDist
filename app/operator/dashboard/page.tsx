@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
 import { Activity, AlertTriangle, Cpu, Server, ShieldCheck } from "lucide-react";
 
 type PrometheusVectorResult = {
@@ -39,9 +40,9 @@ export default function OperatorDashboardPage() {
       setLoading(true);
       try {
         const [upRes, cpuRes, alertsRes] = await Promise.all([
-          fetch("/api/prometheus/query?q=min_up_by_job"),
-          fetch("/api/prometheus/query?q=cpu_load"),
-          fetch("/api/prometheus/query?q=alerts"),
+          authenticatedFetch("/api/prometheus/query?q=min_up_by_job"),
+          authenticatedFetch("/api/prometheus/query?q=cpu_load"),
+          authenticatedFetch("/api/prometheus/query?q=alerts"),
         ]);
 
         if (!upRes.ok || !cpuRes.ok || !alertsRes.ok) {

@@ -10,6 +10,7 @@ import {
   BellRing,
   BookOpen,
   Brain,
+  Database,
   FileText,
   Gauge,
   LayoutDashboard,
@@ -73,6 +74,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Prometheus",
         description: "Query core telemetry streams.",
         icon: Activity,
+      },
+      {
+        href: "/admin/data-fetch",
+        label: "Data Fetch",
+        description: "Run Prometheus and Firestore pulls.",
+        icon: Database,
       },
       {
         href: "/admin/synthetic-alerts",

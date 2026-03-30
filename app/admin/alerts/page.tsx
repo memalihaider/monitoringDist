@@ -40,7 +40,7 @@ export default function AdminAlertsPage() {
     try {
       const [ackResponse, alertsResponse] = await Promise.all([
         authenticatedFetch("/api/alerts/ack"),
-        fetch("/api/prometheus/query?q=alerts"),
+        authenticatedFetch("/api/prometheus/query?q=alerts"),
       ]);
 
       if (!ackResponse.ok) {

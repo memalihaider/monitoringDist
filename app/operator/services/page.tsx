@@ -1,45 +1,42 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
 import { Activity, RefreshCw, Search, Server } from "lucide-react";
 
 type ServiceEntry = {
   id: string;
+  source: "manual" | "prometheus";
+  serviceKey: string;
   name: string;
-  status: "Running" | "Stopped";
+  ownerTeam: string;
+  status: "Running" | "Stopped" | "Unknown";
 };
 
-type PrometheusVectorResult = {
-  metric: Record<string, string>;
-  value: [number, string];
-};
-
-type PrometheusQueryResponse = {
-  data?: {
-    result?: PrometheusVectorResult[];
-  };
+type ServicesResponse = {
+  services?: ServiceEntry[];
+  error?: string;
 };
 
 export default function OperatorServicesPage() {
   const [services, setServices] = useState<ServiceEntry[]>([]);
   const [search, setSearch] = useState("");
   const [isFetching, setIsFetching] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadServices = useCallback(async () => {
     try {
-      const res = await fetch("/api/prometheus/query?q=min_up_by_job");
-      const data = (await res.json()) as PrometheusQueryResponse;
-      const results = data.data?.result || [];
+      const response = await authenticatedFetch("/api/services");
+      const data = (await response.json()) as ServicesResponse;
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to load services");
+      }
 
-      const svc: ServiceEntry[] = results.map((entry, idx) => ({
-        id: entry.metric.job || `unknown-${idx}`,
-        name: entry.metric.instance || "Unknown Instance",
-        status: entry.value[1] === "1" ? "Running" : "Stopped",
-      }));
-
-      setServices(svc);
+      setServices(data.services ?? []);
+      setError(null);
     } catch (err) {
-      console.error("Failed to load services", err);
+      const nextMessage = err instanceof Error ? err.message : "Failed to load services";
+      setError(nextMessage);
     } finally {
       setIsFetching(false);
     }
@@ -56,7 +53,12 @@ export default function OperatorServicesPage() {
     if (!q) {
       return services;
     }
-    return services.filter((service) => service.id.toLowerCase().includes(q) || service.name.toLowerCase().includes(q));
+    return services.filter(
+      (service) =>
+        service.name.toLowerCase().includes(q) ||
+        service.serviceKey.toLowerCase().includes(q) ||
+        service.ownerTeam.toLowerCase().includes(q),
+    );
   }, [search, services]);
 
   return (
@@ -67,7 +69,7 @@ export default function OperatorServicesPage() {
             <p className="admin-eyebrow">Service registry</p>
             <h3 className="admin-title text-2xl">Live service grid</h3>
             <p className="mt-2 text-sm text-(--admin-muted)">
-              Monitor service uptime, update status, and review runtime health.
+              Live service status including manually registered metadata and Prometheus jobs.
             </p>
           </div>
           <div className="relative">
@@ -81,6 +83,7 @@ export default function OperatorServicesPage() {
             />
           </div>
         </div>
+        {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
       </section>
 
       <section className="admin-panel p-6">
@@ -102,21 +105,32 @@ export default function OperatorServicesPage() {
                     <Server className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-(--admin-ink)">{service.id}</p>
-                    <p className="text-xs text-(--admin-muted)">{service.name}</p>
+                    <p className="text-sm font-semibold text-(--admin-ink)">{service.name}</p>
+                    <p className="text-xs text-(--admin-muted)">
+                      {service.serviceKey} {service.ownerTeam ? `• ${service.ownerTeam}` : ""}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  <span className="rounded-full border border-(--admin-line) px-2 py-1 text-[11px] font-semibold uppercase">
+                    {service.source}
+                  </span>
                   <span
                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
                       service.status === "Running"
                         ? "border-[rgba(14,139,124,0.5)] bg-[rgba(14,139,124,0.12)]"
-                        : "border-[rgba(240,138,36,0.6)] bg-[rgba(240,138,36,0.16)]"
+                        : service.status === "Stopped"
+                          ? "border-[rgba(240,138,36,0.6)] bg-[rgba(240,138,36,0.16)]"
+                          : "border-(--admin-line) bg-[rgba(20,21,21,0.06)]"
                     }`}
                   >
                     <span
                       className={`h-2 w-2 rounded-full ${
-                        service.status === "Running" ? "bg-(--admin-accent)" : "bg-(--admin-accent-2)"
+                        service.status === "Running"
+                          ? "bg-(--admin-accent)"
+                          : service.status === "Stopped"
+                            ? "bg-(--admin-accent-2)"
+                            : "bg-(--admin-muted)"
                       }`}
                     />
                     {service.status}

@@ -1,28 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadServicesCatalog } from "@/lib/admin/services-catalog";
 import { authorizeRequest } from "@/lib/auth/server-auth";
 import { getAdminDb } from "@/lib/firebase/admin";
-import { queryPrometheus } from "@/lib/prometheus/client";
-import { resolvePrometheusQueryByKey } from "@/lib/prometheus/query-resolver";
 
 export async function GET(request: NextRequest) {
   try {
     await authorizeRequest(request, ["admin", "operator", "viewer"]);
+    const catalog = await loadServicesCatalog(getAdminDb());
 
-    const queryName =
-      request.nextUrl.searchParams.get("q") ?? request.nextUrl.searchParams.get("query") ?? "up";
-    const resolved = await resolvePrometheusQueryByKey(getAdminDb(), queryName);
-
-    if (!resolved || !resolved.enabled) {
-      return NextResponse.json({ error: "Unsupported query key" }, { status: 400 });
-    }
-
-    const data = await queryPrometheus(resolved.promQl);
     return NextResponse.json({
-      queryName: resolved.key,
-      label: resolved.label,
-      description: resolved.description,
-      source: resolved.source,
-      data,
+      services: catalog.services.filter((service) => service.enabled),
+      manualCount: catalog.manualServices.length,
+      autoCount: catalog.autoServiceCount,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
