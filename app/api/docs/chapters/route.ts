@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorizeRequest } from "@/lib/auth/server-auth";
 import { getChapterBySlug, chapters } from "@/lib/docs/chapters";
 import { getAdminDb } from "@/lib/firebase/admin";
 
@@ -40,12 +39,9 @@ function staticChapterToContent(slug: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    await authorizeRequest(request, ["admin", "operator", "viewer"]);
-
     const slug = request.nextUrl.searchParams.get("slug")?.trim();
     const snapshot = await getAdminDb()
       .collection("admin_docs")
-      .where("published", "==", true)
       .orderBy("updatedAt", "desc")
       .limit(400)
       .get();
@@ -57,6 +53,7 @@ export async function GET(request: NextRequest) {
           title?: string;
           summary?: string;
           content?: string;
+          published?: boolean;
           updatedAt?: unknown;
         };
 
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest) {
           title: data.title,
           summary: data.summary ?? "",
           content: data.content,
-          published: true,
+          published: data.published !== false,
           source: "managed" as const,
           updatedAt: toIsoString(data.updatedAt),
         };
@@ -78,8 +75,10 @@ export async function GET(request: NextRequest) {
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
+    const publishedDocs = managedDocs.filter((doc) => doc.published);
+
     if (slug) {
-      const managed = managedDocs.find((doc) => doc.slug === slug);
+      const managed = publishedDocs.find((doc) => doc.slug === slug);
       if (managed) {
         return NextResponse.json({ chapter: managed });
       }
@@ -88,20 +87,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ chapter: fallback });
     }
 
-    if (managedDocs.length > 0) {
-      return NextResponse.json({ chapters: managedDocs });
+    if (publishedDocs.length > 0) {
+      return NextResponse.json({ chapters: publishedDocs });
     }
 
     const fallbackList = chapters.map((chapter) => staticChapterToContent(chapter.slug)).filter((entry) => entry);
     return NextResponse.json({ chapters: fallbackList });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
-    const status =
-      message === "Insufficient permissions" ||
-      message === "Missing bearer token" ||
-      message === "Role not assigned"
-        ? 403
-        : 500;
+    const status = 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

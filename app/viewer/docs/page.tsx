@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
+import { subscribePublishedManagedDocs } from "@/lib/firestore/admin-docs";
+import { chapters as staticChapters } from "@/lib/docs/chapters";
 import { BookOpen, ChevronRight } from "lucide-react";
 
 type ChapterItem = {
@@ -24,39 +25,43 @@ export default function ViewerDocsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let active = true;
+    const fallback = staticChapters.map((chapter) => ({
+      id: `static:${chapter.slug}`,
+      slug: chapter.slug,
+      title: chapter.title,
+      summary: chapter.summary,
+      source: "static" as const,
+    }));
 
-    async function loadChapters() {
-      setLoading(true);
-      setError(null);
+    const unsubscribe = subscribePublishedManagedDocs(
+      (managedDocs) => {
+        setError(null);
+        setLoading(false);
 
-      try {
-        const response = await authenticatedFetch("/api/docs/chapters");
-        const result = (await response.json()) as ChaptersResponse;
-
-        if (!response.ok) {
-          throw new Error(result.error ?? "Failed to load docs");
+        if (managedDocs.length === 0) {
+          setChapters(fallback);
+          return;
         }
 
-        if (active) {
-          setChapters(result.chapters ?? []);
-        }
-      } catch (nextError) {
-        const nextMessage = nextError instanceof Error ? nextError.message : "Failed to load docs";
-        if (active) {
-          setError(nextMessage);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadChapters();
+        setChapters(
+          managedDocs.map((doc) => ({
+            id: doc.id,
+            slug: doc.slug,
+            title: doc.title,
+            summary: doc.summary,
+            source: "managed" as const,
+          })),
+        );
+      },
+      (nextError) => {
+        setError(nextError.message);
+        setLoading(false);
+        setChapters(fallback);
+      },
+    );
 
     return () => {
-      active = false;
+      unsubscribe();
     };
   }, []);
 
@@ -66,6 +71,7 @@ export default function ViewerDocsPage() {
         <p className="admin-eyebrow">Documentation</p>
         <h3 className="admin-title text-2xl">Read-only playbooks</h3>
         <p className="mt-2 text-sm text-(--admin-muted)">Reference guides curated for viewer access.</p>
+        <p className="mt-2 text-xs font-semibold text-(--admin-muted)">Live updates enabled.</p>
         {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
       </section>
 

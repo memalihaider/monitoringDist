@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -13,7 +13,9 @@ import {
   Settings,
   ShieldCheck,
   LogOut,
-  MonitorCheck
+  MonitorCheck,
+  Menu,
+  X,
 } from "lucide-react";
 
 const navLinks = [
@@ -29,6 +31,19 @@ const navLinks = [
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, role, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("mobile-menu-open", isMobileMenuOpen);
+    return () => {
+      document.body.classList.remove("mobile-menu-open");
+    };
+  }, [isMobileMenuOpen]);
 
   const isAdminRoute = pathname.startsWith("/admin");
   const isRolePortalRoute = pathname.startsWith("/operator") || pathname.startsWith("/viewer");
@@ -120,12 +135,87 @@ export default function AppShell({ children }: { children: ReactNode }) {
              <MonitorCheck className="w-6 h-6 text-black" />
              <span className="font-black text-lg uppercase">MonitorDist</span>
           </div>
-          <button onClick={() => void logout()} className="p-2 border-2 border-black rounded-lg cursor-pointer">
-            <LogOut className="w-5 h-5" />
+          <button
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="p-2 border-2 border-black rounded-lg cursor-pointer"
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileMenuOpen}
+          >
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 md:p-8 lg:p-10 bg-white">
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className={`fixed inset-0 z-40 bg-black/40 transition-opacity md:hidden ${
+            isMobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        />
+
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 w-80 max-w-[86vw] bg-white border-r-2 border-black flex flex-col md:hidden transition-transform duration-300 ${
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="p-5 border-b-2 border-black">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-black">
+                <MonitorCheck className="w-6 h-6" />
+                <span className="font-black text-lg tracking-tighter uppercase italic">MonitorDist</span>
+              </div>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1.5 border-2 border-black rounded-lg"
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 border-2 border-black bg-white rounded-full text-[10px] font-black uppercase tracking-widest text-black shadow-[2px_2px_0_0_#000]">
+              <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></div>
+              {role}
+            </div>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+            {navLinks.map((item) => {
+              if (item.href.startsWith("/admin") && role !== "admin") return null;
+
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
+                    isActive
+                      ? "bg-black text-white border-black"
+                      : "border-transparent text-black/70 hover:border-black hover:text-black hover:bg-neutral-50"
+                  }`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <item.icon className={`w-5 h-5 ${isActive ? "text-white" : "text-black/40"}`} />
+                  <span className="font-black text-sm uppercase tracking-wide">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="p-4 border-t-2 border-black">
+            <div className="mb-3 rounded-xl border-2 border-black p-3">
+              <p className="text-sm font-black text-black truncate">{user.email}</p>
+              <p className="text-[10px] font-bold text-black/50 uppercase tracking-wider mt-1">ID: {user.uid.slice(0, 8)}</p>
+            </div>
+            <button
+              onClick={() => void logout()}
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 text-xs font-black uppercase tracking-widest text-black border-2 border-black hover:bg-black hover:text-white transition-colors cursor-pointer rounded-xl active:translate-y-px"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+          </div>
+        </aside>
+
+        <main className="flex-1 overflow-auto p-4 sm:p-5 md:p-8 lg:p-10 bg-white">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>

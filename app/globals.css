@@ -13,6 +13,10 @@ body {
   @apply bg-white text-black;
 }
 
+body.mobile-menu-open {
+  overflow: hidden;
+}
+
 .admin-portal {
   --admin-bg: #f6f1e8;
   --admin-panel: #fbf7f1;

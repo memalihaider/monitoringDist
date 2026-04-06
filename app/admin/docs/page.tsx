@@ -54,7 +54,9 @@ export default function AdminDocsPage() {
     setError(null);
 
     try {
-      const response = await authenticatedFetch("/api/admin/docs");
+      const response = await authenticatedFetch("/api/admin/docs", {
+        cache: "no-store",
+      });
       const result = (await response.json()) as DocsResponse;
       if (!response.ok) {
         throw new Error(result.error ?? "Failed to load docs");
@@ -71,6 +73,13 @@ export default function AdminDocsPage() {
 
   useEffect(() => {
     void loadDocs();
+    const timer = window.setInterval(() => {
+      void loadDocs();
+    }, 10000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
   }, [loadDocs]);
 
   const filteredDocs = useMemo(() => {
@@ -171,6 +180,7 @@ export default function AdminDocsPage() {
         <p className="mt-2 text-sm text-(--admin-muted)">
           Create, edit, publish, and maintain documentation from the admin control plane.
         </p>
+        <p className="mt-2 text-xs font-semibold text-(--admin-muted)">Auto-refreshes every 10 seconds.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <span className="admin-chip">Managed docs: {docs.length}</span>
           <span className="admin-chip">Published: {docs.filter((entry) => entry.published).length}</span>

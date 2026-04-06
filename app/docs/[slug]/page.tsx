@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import ProtectedRoute from "@/components/auth/protected-route";
 import ChapterNotes from "@/components/docs/chapter-notes";
-import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
+import { subscribePublishedManagedDocs } from "@/lib/firestore/admin-docs";
 import { getChapterBySlug } from "@/lib/docs/chapters";
 
 type ChapterResponse = {
@@ -31,75 +31,57 @@ export default function DocsChapterPage() {
     notFound();
   }
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadChapter() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await authenticatedFetch(`/api/docs/chapters?slug=${encodeURIComponent(slug)}`);
-        const result = (await response.json()) as ChapterResponse;
-
-        if (!response.ok) {
-          throw new Error(result.error ?? "Failed to load chapter");
-        }
-
-        if (active) {
-          if (result.chapter) {
-            setChapterContent(result.chapter);
-          } else {
-            const fallback = getChapterBySlug(slug);
-            if (!fallback) {
-              setChapterContent(null);
-            } else {
-              setChapterContent({
-                id: `static:${fallback.slug}`,
-                slug: fallback.slug,
-                title: fallback.title,
-                summary: fallback.summary,
-                content: fallback.sections
-                  .map((section) => `## ${section.heading}\n\n${section.paragraphs.join("\n\n")}`)
-                  .join("\n\n"),
-                source: "static",
-              });
-            }
-          }
-        }
-      } catch (nextError) {
-        const nextMessage = nextError instanceof Error ? nextError.message : "Failed to load chapter";
-        if (active) {
-          setError(nextMessage);
-          const fallback = getChapterBySlug(slug);
-          if (fallback) {
-            setChapterContent({
-              id: `static:${fallback.slug}`,
-              slug: fallback.slug,
-              title: fallback.title,
-              summary: fallback.summary,
-              content: fallback.sections
-                .map((section) => `## ${section.heading}\n\n${section.paragraphs.join("\n\n")}`)
-                .join("\n\n"),
-              source: "static",
-            });
-          } else {
-            setChapterContent(null);
-          }
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
+  const staticFallback = useCallback(() => {
+    const fallback = getChapterBySlug(slug);
+    if (!fallback) {
+      setChapterContent(null);
+      return;
     }
 
-    void loadChapter();
+    setChapterContent({
+      id: `static:${fallback.slug}`,
+      slug: fallback.slug,
+      title: fallback.title,
+      summary: fallback.summary,
+      content: fallback.sections
+        .map((section) => `## ${section.heading}\n\n${section.paragraphs.join("\n\n")}`)
+        .join("\n\n"),
+      source: "static",
+    });
+  }, [slug]);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    const unsubscribe = subscribePublishedManagedDocs(
+      (managedDocs) => {
+        const managed = managedDocs.find((doc) => doc.slug === slug);
+        if (managed) {
+          setChapterContent({
+            id: managed.id,
+            slug: managed.slug,
+            title: managed.title,
+            summary: managed.summary,
+            content: managed.content,
+            source: "managed",
+          });
+        } else {
+          staticFallback();
+        }
+        setLoading(false);
+      },
+      (nextError) => {
+        setError(nextError.message);
+        staticFallback();
+        setLoading(false);
+      },
+    );
 
     return () => {
-      active = false;
+      unsubscribe();
     };
-  }, [slug]);
+  }, [slug, staticFallback]);
 
   const renderedBlocks = useMemo(() => {
     const content = chapterContent?.content ?? "";
@@ -127,6 +109,7 @@ export default function DocsChapterPage() {
         <p className="text-sm text-(--admin-muted)">
           Source: {chapterContent?.source === "managed" ? "Managed Docs" : "Static Chapter"}
         </p>
+        <p className="text-xs font-semibold text-(--admin-muted)">Live updates enabled.</p>
 
         <div className="chapter-sections">
           {loading ? (
