@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
-import { Activity, LineChart, Pencil, Plus, Trash2 } from "lucide-react";
+import { Activity, Gauge, Globe, LineChart, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 type PrometheusVectorResult = {
   metric: Record<string, string>;
@@ -47,6 +47,42 @@ type PrometheusStatusResponse = {
   baseUrl?: string;
 };
 
+type WebsiteProbeResponse = {
+  targetUrl: string;
+  finalUrl: string;
+  checkedAt: string;
+  available: boolean;
+  statusCode: number;
+  statusText: string;
+  responseTimeMs: number;
+  responseSizeBytes: number | null;
+  contentType: string;
+  title: string;
+  contentMetrics: {
+    links: number;
+    images: number;
+    scripts: number;
+    forms: number;
+    headings: number;
+  };
+  securityHeaders: {
+    strictTransportSecurity: boolean;
+    contentSecurityPolicy: boolean;
+    xContentTypeOptions: boolean;
+    xFrameOptions: boolean;
+    referrerPolicy: boolean;
+  };
+  metricsEndpoint: {
+    checked: boolean;
+    available: boolean;
+    endpoint: string;
+    statusCode?: number;
+    metricCount?: number;
+    sampleMetricNames?: string[];
+  };
+  error?: string;
+};
+
 type QueryForm = {
   id: string;
   key: string;
@@ -78,6 +114,10 @@ export default function AdminPrometheusPage() {
   const [form, setForm] = useState<QueryForm>(EMPTY_FORM);
   const [status, setStatus] = useState<PrometheusStatusResponse | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [websiteUrl, setWebsiteUrl] = useState("https://example.com");
+  const [websiteProbeLoading, setWebsiteProbeLoading] = useState(false);
+  const [websiteProbeError, setWebsiteProbeError] = useState<string | null>(null);
+  const [websiteProbe, setWebsiteProbe] = useState<WebsiteProbeResponse | null>(null);
 
   const loadQueries = useCallback(async () => {
     setLoadingQueries(true);
@@ -249,6 +289,33 @@ export default function AdminPrometheusPage() {
     }
   }
 
+  async function runWebsiteProbe() {
+    if (!websiteUrl.trim()) {
+      setWebsiteProbeError("Please provide a website URL");
+      return;
+    }
+
+    setWebsiteProbeLoading(true);
+    setWebsiteProbeError(null);
+
+    try {
+      const response = await authenticatedFetch(`/api/prometheus/website?url=${encodeURIComponent(websiteUrl)}`);
+      const result = (await response.json()) as WebsiteProbeResponse;
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Failed to probe website");
+      }
+
+      setWebsiteProbe(result);
+    } catch (nextError) {
+      const nextMessage = nextError instanceof Error ? nextError.message : "Failed to probe website";
+      setWebsiteProbeError(nextMessage);
+      setWebsiteProbe(null);
+    } finally {
+      setWebsiteProbeLoading(false);
+    }
+  }
+
   const selectedQuery = useMemo(
     () => queries.find((query) => query.key === queryKey) ?? null,
     [queries, queryKey],
@@ -335,6 +402,149 @@ export default function AdminPrometheusPage() {
 
         {status?.connected === false && status.error ? (
           <p className="mt-3 text-sm font-semibold text-red-700">{status.error}</p>
+        ) : null}
+      </section>
+
+      <section className="admin-panel p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="admin-eyebrow">Website monitoring</p>
+            <h4 className="admin-title text-lg">Probe any website URL</h4>
+            <p className="mt-1 text-sm text-(--admin-muted)">
+              Enter a public URL to collect live availability, response, and page-level metrics.
+            </p>
+          </div>
+          <Globe className="h-5 w-5 text-(--admin-muted)" />
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input
+            type="url"
+            value={websiteUrl}
+            onChange={(event) => setWebsiteUrl(event.target.value)}
+            placeholder="https://your-site.com"
+            className="w-full rounded-2xl border border-(--admin-line) bg-white px-3 py-2 text-sm"
+          />
+          <button
+            onClick={() => {
+              void runWebsiteProbe();
+            }}
+            disabled={websiteProbeLoading}
+            className="rounded-full border border-(--admin-ink) bg-(--admin-ink) px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            {websiteProbeLoading ? "Probing..." : "Probe URL"}
+          </button>
+        </div>
+
+        {websiteProbeError ? <p className="mt-3 text-sm font-semibold text-red-700">{websiteProbeError}</p> : null}
+
+        {websiteProbe ? (
+          <div className="mt-5 space-y-4">
+            <div className="grid gap-3 text-xs text-(--admin-muted) sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+                <p className="uppercase tracking-wider">Availability</p>
+                <p className="mt-1 text-sm font-semibold text-(--admin-ink)">
+                  {websiteProbe.available ? "UP" : "DOWN"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+                <p className="uppercase tracking-wider">HTTP Status</p>
+                <p className="mt-1 text-sm font-semibold text-(--admin-ink)">
+                  {websiteProbe.statusCode} {websiteProbe.statusText}
+                </p>
+              </div>
+              <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+                <p className="uppercase tracking-wider">Response Time</p>
+                <p className="mt-1 text-sm font-semibold text-(--admin-ink)">{websiteProbe.responseTimeMs} ms</p>
+              </div>
+              <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+                <p className="uppercase tracking-wider">Payload Size</p>
+                <p className="mt-1 text-sm font-semibold text-(--admin-ink)">
+                  {typeof websiteProbe.responseSizeBytes === "number"
+                    ? `${websiteProbe.responseSizeBytes.toLocaleString()} bytes`
+                    : "Unknown"}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-(--admin-line) bg-white/80 p-4 text-xs text-(--admin-muted)">
+              <p>
+                Target: <span className="font-semibold text-(--admin-ink)">{websiteProbe.targetUrl}</span>
+              </p>
+              <p className="mt-1">
+                Final URL: <span className="font-semibold text-(--admin-ink)">{websiteProbe.finalUrl}</span>
+              </p>
+              <p className="mt-1">
+                Content-Type: <span className="font-semibold text-(--admin-ink)">{websiteProbe.contentType || "Unknown"}</span>
+              </p>
+              <p className="mt-1">
+                Last Check: <span className="font-semibold text-(--admin-ink)">{new Date(websiteProbe.checkedAt).toLocaleString()}</span>
+              </p>
+              {websiteProbe.title ? (
+                <p className="mt-1">
+                  Page Title: <span className="font-semibold text-(--admin-ink)">{websiteProbe.title}</span>
+                </p>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-(--admin-line) bg-white/80 p-4">
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-4 w-4" />
+                  <p className="text-sm font-semibold text-(--admin-ink)">Page Metrics</p>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-(--admin-muted)">
+                  <p>Links: <span className="font-semibold text-(--admin-ink)">{websiteProbe.contentMetrics.links}</span></p>
+                  <p>Images: <span className="font-semibold text-(--admin-ink)">{websiteProbe.contentMetrics.images}</span></p>
+                  <p>Scripts: <span className="font-semibold text-(--admin-ink)">{websiteProbe.contentMetrics.scripts}</span></p>
+                  <p>Forms: <span className="font-semibold text-(--admin-ink)">{websiteProbe.contentMetrics.forms}</span></p>
+                  <p>Headings: <span className="font-semibold text-(--admin-ink)">{websiteProbe.contentMetrics.headings}</span></p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-(--admin-line) bg-white/80 p-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" />
+                  <p className="text-sm font-semibold text-(--admin-ink)">Security Headers</p>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-(--admin-muted)">
+                  <p>HSTS: <span className="font-semibold text-(--admin-ink)">{websiteProbe.securityHeaders.strictTransportSecurity ? "Yes" : "No"}</span></p>
+                  <p>CSP: <span className="font-semibold text-(--admin-ink)">{websiteProbe.securityHeaders.contentSecurityPolicy ? "Yes" : "No"}</span></p>
+                  <p>X-CTO: <span className="font-semibold text-(--admin-ink)">{websiteProbe.securityHeaders.xContentTypeOptions ? "Yes" : "No"}</span></p>
+                  <p>X-Frame: <span className="font-semibold text-(--admin-ink)">{websiteProbe.securityHeaders.xFrameOptions ? "Yes" : "No"}</span></p>
+                  <p>Referrer Policy: <span className="font-semibold text-(--admin-ink)">{websiteProbe.securityHeaders.referrerPolicy ? "Yes" : "No"}</span></p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-(--admin-line) bg-white/80 p-4">
+              <p className="text-sm font-semibold text-(--admin-ink)">/metrics Endpoint Discovery</p>
+              <p className="mt-2 text-xs text-(--admin-muted)">
+                Endpoint: <span className="font-semibold text-(--admin-ink)">{websiteProbe.metricsEndpoint.endpoint}</span>
+              </p>
+              <p className="mt-1 text-xs text-(--admin-muted)">
+                Status: <span className="font-semibold text-(--admin-ink)">{websiteProbe.metricsEndpoint.available ? "Available" : "Not available"}</span>
+                {typeof websiteProbe.metricsEndpoint.statusCode === "number" ? ` (${websiteProbe.metricsEndpoint.statusCode})` : ""}
+              </p>
+              {typeof websiteProbe.metricsEndpoint.metricCount === "number" ? (
+                <p className="mt-1 text-xs text-(--admin-muted)">
+                  Parsed Metrics: <span className="font-semibold text-(--admin-ink)">{websiteProbe.metricsEndpoint.metricCount}</span>
+                </p>
+              ) : null}
+              {websiteProbe.metricsEndpoint.sampleMetricNames && websiteProbe.metricsEndpoint.sampleMetricNames.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {websiteProbe.metricsEndpoint.sampleMetricNames.map((metricName) => (
+                    <span
+                      key={metricName}
+                      className="rounded-full border border-(--admin-line) px-2 py-1 text-[11px] font-semibold text-(--admin-muted)"
+                    >
+                      {metricName}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
         ) : null}
       </section>
 
