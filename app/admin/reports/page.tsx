@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
 import { buildCsvTable, buildJsonPayload, buildReportPdf, downloadBlob, safeReportFilename } from "@/lib/reports/export";
+import Link from "next/link";
 import { Calendar, Download, FileText, Filter, Play, Plus, Trash2 } from "lucide-react";
 
 type ReportFormat = "csv" | "json" | "summary";
@@ -15,6 +16,8 @@ type ReportEntry = {
   format: ReportFormat;
   sourceType: ReportSource;
   queryKey: string;
+  projectId: string;
+  projectName: string;
   content: string;
   status: "draft" | "ready";
   generatedAt: string;
@@ -35,6 +38,8 @@ type ReportForm = {
   format: ReportFormat;
   sourceType: ReportSource;
   queryKey: string;
+  projectId: string;
+  projectName: string;
   content: string;
   status: "draft" | "ready";
 };
@@ -46,6 +51,8 @@ const EMPTY_FORM: ReportForm = {
   format: "summary",
   sourceType: "manual",
   queryKey: "",
+  projectId: "",
+  projectName: "",
   content: "",
   status: "draft",
 };
@@ -94,6 +101,8 @@ export default function AdminReportsPage() {
       format: report.format,
       sourceType: report.sourceType,
       queryKey: report.queryKey,
+      projectId: report.projectId,
+      projectName: report.projectName,
       content: report.content,
       status: report.status,
     });
@@ -249,6 +258,17 @@ export default function AdminReportsPage() {
             <span className="admin-chip">Ready: {reports.filter((entry) => entry.status === "ready").length}</span>
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link href="/admin/projects" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Projects
+          </Link>
+          <Link href="/admin/data-fetch" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Data Fetch
+          </Link>
+          <Link href="/admin/prometheus" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Prometheus
+          </Link>
+        </div>
           {!canDelete ? (
             <p className="mt-2 text-xs font-semibold text-(--admin-muted)">Delete actions are restricted to super-admin users.</p>
           ) : null}
@@ -310,6 +330,11 @@ export default function AdminReportsPage() {
                           <span className="rounded-full border border-(--admin-line) px-2 py-0.5 uppercase">
                             {report.status}
                           </span>
+                          {report.projectName ? (
+                            <span className="rounded-full border border-(--admin-line) px-2 py-0.5 uppercase">
+                              project: {report.projectName}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </div>

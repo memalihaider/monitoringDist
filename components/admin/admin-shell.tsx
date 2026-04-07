@@ -23,6 +23,7 @@ import {
   Sliders,
   Users,
   Menu,
+  FolderKanban,
   X,
 } from "lucide-react";
 
@@ -59,6 +60,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Services",
         description: "Service registry and live status grid.",
         icon: Server,
+      },
+      {
+        href: "/admin/projects",
+        label: "Projects",
+        description: "Monitor external systems by project.",
+        icon: FolderKanban,
       },
       {
         href: "/admin/reports",

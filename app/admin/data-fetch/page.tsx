@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
+import Link from "next/link";
 import { Database, Play, RefreshCw } from "lucide-react";
 
 type QueryRecord = {
@@ -14,6 +15,8 @@ type FetchJob = {
   id: string;
   source: string;
   queryKey: string;
+  projectId: string;
+  projectName: string;
   collectionName: string;
   status: string;
   resultCount: number;
@@ -30,6 +33,16 @@ type JobsResponse = {
 
 type QueryResponse = {
   queries?: QueryRecord[];
+};
+
+type MonitoringProject = {
+  id: string;
+  name: string;
+  prometheusQuery: string;
+};
+
+type ProjectsResponse = {
+  projects?: MonitoringProject[];
 };
 
 const COLLECTION_OPTIONS = [
@@ -50,6 +63,8 @@ export default function AdminDataFetchPage() {
   const [running, setRunning] = useState(false);
   const [source, setSource] = useState<"prometheus" | "firestore">("prometheus");
   const [queryKey, setQueryKey] = useState("up");
+  const [projects, setProjects] = useState<MonitoringProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const [collectionName, setCollectionName] = useState<(typeof COLLECTION_OPTIONS)[number]>("admin_services");
   const [limit, setLimit] = useState(25);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
@@ -61,13 +76,15 @@ export default function AdminDataFetchPage() {
     setError(null);
 
     try {
-      const [jobsResponse, queriesResponse] = await Promise.all([
+      const [jobsResponse, queriesResponse, projectsResponse] = await Promise.all([
         authenticatedFetch("/api/admin/data-fetch"),
         authenticatedFetch("/api/admin/prometheus"),
+        authenticatedFetch("/api/admin/monitoring-projects"),
       ]);
 
       const jobsResult = (await jobsResponse.json()) as JobsResponse;
       const queryResult = (await queriesResponse.json()) as QueryResponse;
+      const projectsResult = (await projectsResponse.json()) as ProjectsResponse;
 
       if (!jobsResponse.ok) {
         throw new Error(jobsResult.error ?? "Failed to load data fetch history");
@@ -76,6 +93,7 @@ export default function AdminDataFetchPage() {
       const nextJobs = jobsResult.jobs ?? [];
       setJobs(nextJobs);
       setQueries(queryResult.queries ?? []);
+      setProjects(projectsResult.projects ?? []);
 
       if ((queryResult.queries ?? []).length > 0 && !(queryResult.queries ?? []).some((item) => item.key === queryKey)) {
         setQueryKey((queryResult.queries ?? [])[0].key);
@@ -104,7 +122,7 @@ export default function AdminDataFetchPage() {
     try {
       const payload =
         source === "prometheus"
-          ? { source, queryKey }
+          ? { source, queryKey, projectId: selectedProjectId || undefined }
           : { source, collectionName, limit: Number.isFinite(limit) ? limit : 25 };
 
       const response = await authenticatedFetch("/api/admin/data-fetch", {
@@ -150,7 +168,19 @@ export default function AdminDataFetchPage() {
           <div className="flex flex-wrap gap-2">
             <span className="admin-chip">Jobs: {jobs.length}</span>
             <span className="admin-chip">Prometheus queries: {queries.length}</span>
+            <span className="admin-chip">Projects: {projects.length}</span>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link href="/admin/projects" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Projects
+          </Link>
+          <Link href="/admin/prometheus" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Prometheus
+          </Link>
+          <Link href="/admin/reports" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Reports
+          </Link>
         </div>
         {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
         {message ? <p className="mt-3 text-sm font-semibold text-emerald-700">{message}</p> : null}
@@ -174,17 +204,38 @@ export default function AdminDataFetchPage() {
             </select>
 
             {source === "prometheus" ? (
-              <select
-                className="w-full rounded-xl border border-(--admin-line) bg-white px-3 py-2 text-sm"
-                value={queryKey}
-                onChange={(event) => setQueryKey(event.target.value)}
-              >
-                {queries.map((query) => (
-                  <option key={query.id} value={query.key}>
-                    {query.label} ({query.key})
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="w-full rounded-xl border border-(--admin-line) bg-white px-3 py-2 text-sm"
+                  value={selectedProjectId}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSelectedProjectId(value);
+                    const selectedProject = projects.find((project) => project.id === value);
+                    if (selectedProject?.prometheusQuery) {
+                      setQueryKey(selectedProject.prometheusQuery);
+                    }
+                  }}
+                >
+                  <option value="">No project selected</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="w-full rounded-xl border border-(--admin-line) bg-white px-3 py-2 text-sm"
+                  value={queryKey}
+                  onChange={(event) => setQueryKey(event.target.value)}
+                >
+                  {queries.map((query) => (
+                    <option key={query.id} value={query.key}>
+                      {query.label} ({query.key})
+                    </option>
+                  ))}
+                </select>
+              </>
             ) : (
               <>
                 <select
@@ -263,6 +314,9 @@ export default function AdminDataFetchPage() {
                   <p className="mt-1 text-xs text-(--admin-muted)">
                     {job.queryKey ? `q=${job.queryKey}` : `collection=${job.collectionName}`}
                   </p>
+                  {job.projectName ? (
+                    <p className="mt-1 text-xs font-semibold text-(--admin-ink)">Project: {job.projectName}</p>
+                  ) : null}
                   <p className="mt-1 text-xs text-(--admin-muted)">
                     Rows: {job.resultCount} • {job.createdAt ? new Date(job.createdAt).toLocaleString() : "-"}
                   </p>
@@ -282,6 +336,9 @@ export default function AdminDataFetchPage() {
             <p className="mt-2 text-xs text-(--admin-muted)">
               Job {selectedJob.id} • {selectedJob.source} • {selectedJob.resultCount} rows
             </p>
+            {selectedJob.projectName ? (
+              <p className="mt-1 text-xs font-semibold text-(--admin-ink)">Project: {selectedJob.projectName}</p>
+            ) : null}
             <pre className="mt-3 max-h-90 overflow-auto rounded-2xl border border-(--admin-line) bg-white p-4 text-xs text-(--admin-ink)">
               {selectedJob.preview || selectedJob.error || "No preview available"}
             </pre>

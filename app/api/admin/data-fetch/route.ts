@@ -3,11 +3,13 @@ import { createAdminAuditEvent } from "@/lib/admin/audit-log";
 import { authorizeRequest } from "@/lib/auth/server-auth";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { queryPrometheus } from "@/lib/prometheus/client";
+import { probeWebsite } from "@/lib/prometheus/website-probe";
 import { resolvePrometheusQueryByKey } from "@/lib/prometheus/query-resolver";
 
 type FetchJobInput = {
   source?: "prometheus" | "firestore";
   queryKey?: string;
+  projectId?: string;
   collectionName?: string;
   limit?: number;
 };
@@ -60,6 +62,8 @@ export async function GET(request: NextRequest) {
       const data = docSnap.data() as {
         source?: string;
         queryKey?: string;
+        projectId?: string;
+        projectName?: string;
         collectionName?: string;
         status?: string;
         resultCount?: number;
@@ -72,6 +76,8 @@ export async function GET(request: NextRequest) {
         id: docSnap.id,
         source: data.source ?? "unknown",
         queryKey: data.queryKey ?? "",
+        projectId: data.projectId ?? "",
+        projectName: data.projectName ?? "",
         collectionName: data.collectionName ?? "",
         status: data.status ?? "unknown",
         resultCount: typeof data.resultCount === "number" ? data.resultCount : 0,
@@ -103,22 +109,91 @@ export async function POST(request: NextRequest) {
     let resultCount = 0;
     let preview = "";
     let queryKey = "";
+    let projectId = body.projectId?.trim() ?? "";
+    let projectName = "";
     let collectionName = "";
 
     if (source === "prometheus") {
-      queryKey = body.queryKey?.trim() ?? "";
+      if (projectId) {
+        const projectSnap = await getAdminDb().collection("admin_monitoring_projects").doc(projectId).get();
+        if (!projectSnap.exists) {
+          return NextResponse.json({ error: "project not found" }, { status: 404 });
+        }
+
+        const projectData = projectSnap.data() as {
+          name?: string;
+          prometheusQuery?: string;
+          targetUrl?: string;
+        };
+        projectName = projectData.name?.trim() ?? "";
+        queryKey = body.queryKey?.trim() ?? projectData.prometheusQuery?.trim() ?? "up";
+      } else {
+        queryKey = body.queryKey?.trim() ?? "";
+      }
+
       if (!queryKey) {
-        return NextResponse.json({ error: "queryKey is required for Prometheus source" }, { status: 400 });
+        return NextResponse.json(
+          { error: "queryKey is required for Prometheus source when project has no query" },
+          { status: 400 },
+        );
       }
 
       const resolved = await resolvePrometheusQueryByKey(getAdminDb(), queryKey);
-      if (!resolved) {
-        return NextResponse.json({ error: "queryKey is not available" }, { status: 400 });
-      }
-
-      const result = await queryPrometheus(resolved.promQl);
+      const result = await queryPrometheus(resolved?.promQl ?? queryKey);
       resultCount = Array.isArray(result.result) ? result.result.length : 0;
-      preview = stringifyPreview(result.result ?? []);
+
+      if (resultCount === 0 && projectId) {
+        const projectSnap = await getAdminDb().collection("admin_monitoring_projects").doc(projectId).get();
+        const projectData = (projectSnap.data() ?? {}) as {
+          name?: string;
+          targetUrl?: string;
+          description?: string;
+          expectedMetrics?: string[];
+        };
+
+        if (projectData.targetUrl?.trim()) {
+          try {
+            const probe = await probeWebsite(projectData.targetUrl.trim());
+            const fallbackRows = [
+              {
+                projectId,
+                projectName: projectData.name ?? "Project",
+                description: projectData.description ?? "",
+                metricSource: "website_probe_fallback",
+                targetUrl: projectData.targetUrl,
+                expectedMetrics: Array.isArray(projectData.expectedMetrics)
+                  ? projectData.expectedMetrics
+                  : [],
+                probeStatus: probe.available ? "up" : "down",
+                responseTimeMs: probe.responseTimeMs,
+                statusCode: probe.statusCode,
+                checkedAt: probe.checkedAt,
+                note: "Prometheus returned no rows, showing real-time probe fallback data.",
+              },
+            ];
+
+            resultCount = fallbackRows.length;
+            preview = stringifyPreview(fallbackRows);
+
+            await getAdminDb().collection("admin_monitoring_projects").doc(projectId).set(
+              {
+                lastProbeStatus: probe.available ? "up" : "down",
+                lastProbeAt: probe.checkedAt,
+                lastProbeLatencyMs: probe.responseTimeMs,
+                updatedAt: new Date().toISOString(),
+                updatedBy: authUser.uid,
+              },
+              { merge: true },
+            );
+          } catch {
+            preview = stringifyPreview(result.result ?? []);
+          }
+        } else {
+          preview = stringifyPreview(result.result ?? []);
+        }
+      } else {
+        preview = stringifyPreview(result.result ?? []);
+      }
     }
 
     if (source === "firestore") {
@@ -139,6 +214,8 @@ export async function POST(request: NextRequest) {
     await docRef.set({
       source,
       queryKey,
+      projectId,
+      projectName,
       collectionName,
       status: "success",
       resultCount,
@@ -148,12 +225,32 @@ export async function POST(request: NextRequest) {
       createdBy: authUser.uid,
     });
 
+    if (source === "prometheus" && projectId) {
+      const now = new Date().toISOString();
+      await getAdminDb().collection("admin_reports").add({
+        title: `${projectName || "Project"} - Monitoring Fetch`,
+        description: `Auto-generated from data fetch job ${docRef.id}`,
+        format: "json",
+        sourceType: "prometheus",
+        queryKey,
+        projectId,
+        projectName,
+        content: preview,
+        status: "ready",
+        generatedAt: now,
+        generatedPreview: preview,
+        updatedAt: now,
+        updatedBy: authUser.uid,
+        createdAt: now,
+      });
+    }
+
     await createAdminAuditEvent({
       actorUid: authUser.uid,
       actorRole: authUser.role,
       action: "run_data_fetch",
       target: docRef.id,
-      detail: `source=${source}, queryKey=${queryKey || "n/a"}, collection=${collectionName || "n/a"}, count=${resultCount}`,
+      detail: `source=${source}, project=${projectName || projectId || "n/a"}, queryKey=${queryKey || "n/a"}, collection=${collectionName || "n/a"}, count=${resultCount}`,
       severity: "info",
     });
 
@@ -163,6 +260,8 @@ export async function POST(request: NextRequest) {
         id: docRef.id,
         source,
         queryKey,
+        projectId,
+        projectName,
         collectionName,
         resultCount,
         preview,

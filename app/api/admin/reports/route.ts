@@ -15,6 +15,8 @@ type ReportInput = {
   format?: ReportFormat;
   sourceType?: ReportSource;
   queryKey?: string;
+  projectId?: string;
+  projectName?: string;
   content?: string;
   status?: "draft" | "ready";
   action?: "generate";
@@ -46,6 +48,8 @@ function normalizeReportPayload(input: ReportInput) {
     format,
     sourceType,
     queryKey: input.queryKey?.trim() ?? "",
+    projectId: input.projectId?.trim() ?? "",
+    projectName: input.projectName?.trim() ?? "",
     content: input.content?.trim() ?? "",
     status,
   };
@@ -75,6 +79,8 @@ export async function GET(request: NextRequest) {
           format?: ReportFormat;
           sourceType?: ReportSource;
           queryKey?: string;
+          projectId?: string;
+          projectName?: string;
           content?: string;
           status?: "draft" | "ready";
           generatedAt?: unknown;
@@ -93,6 +99,8 @@ export async function GET(request: NextRequest) {
           format: data.format ?? "summary",
           sourceType: data.sourceType ?? "manual",
           queryKey: data.queryKey ?? "",
+          projectId: data.projectId ?? "",
+          projectName: data.projectName ?? "",
           content: data.content ?? "",
           status: data.status ?? "draft",
           generatedAt: data.generatedAt ? toIsoString(data.generatedAt) : "",

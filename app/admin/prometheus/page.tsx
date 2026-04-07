@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/auth/client-auth-fetch";
+import Link from "next/link";
 import { Activity, Gauge, Globe, LineChart, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 type PrometheusVectorResult = {
@@ -337,6 +338,17 @@ export default function AdminPrometheusPage() {
             <span className="admin-chip">Presets: {queries.length}</span>
             <span className="admin-chip">Custom: {queries.filter((entry) => entry.source === "custom").length}</span>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link href="/admin/projects" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Projects
+          </Link>
+          <Link href="/admin/data-fetch" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Data Fetch
+          </Link>
+          <Link href="/admin/reports" className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 font-semibold">
+            Open Reports
+          </Link>
         </div>
         {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
         {message ? <p className="mt-3 text-sm font-semibold text-emerald-700">{message}</p> : null}
