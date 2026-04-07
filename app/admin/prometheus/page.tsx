@@ -37,6 +37,16 @@ type PrometheusQueryResponse = {
   error?: string;
 };
 
+type PrometheusStatusResponse = {
+  connected: boolean;
+  error?: string;
+  checkedAt?: string;
+  latencyMs?: number;
+  resultCount?: number;
+  demoMode?: boolean;
+  baseUrl?: string;
+};
+
 type QueryForm = {
   id: string;
   key: string;
@@ -66,6 +76,8 @@ export default function AdminPrometheusPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [form, setForm] = useState<QueryForm>(EMPTY_FORM);
+  const [status, setStatus] = useState<PrometheusStatusResponse | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
 
   const loadQueries = useCallback(async () => {
     setLoadingQueries(true);
@@ -115,6 +127,29 @@ export default function AdminPrometheusPage() {
     }
   }, [queryKey]);
 
+  const loadPrometheusStatus = useCallback(async () => {
+    setStatusLoading(true);
+
+    try {
+      const response = await authenticatedFetch("/api/prometheus/status");
+      const result = (await response.json()) as PrometheusStatusResponse;
+
+      if (!response.ok) {
+        setStatus({ ...result, connected: false });
+        return;
+      }
+
+      setStatus(result);
+    } catch {
+      setStatus({
+        connected: false,
+        error: "Failed to check Prometheus connection",
+      });
+    } finally {
+      setStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadQueries();
   }, [loadQueries]);
@@ -122,6 +157,15 @@ export default function AdminPrometheusPage() {
   useEffect(() => {
     void loadQueryResult();
   }, [loadQueryResult]);
+
+  useEffect(() => {
+    void loadPrometheusStatus();
+    const timer = setInterval(() => {
+      void loadPrometheusStatus();
+    }, 30000);
+
+    return () => clearInterval(timer);
+  }, [loadPrometheusStatus]);
 
   function startEdit(query: QueryRecord) {
     if (!query.editable) {
@@ -229,6 +273,69 @@ export default function AdminPrometheusPage() {
         </div>
         {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
         {message ? <p className="mt-3 text-sm font-semibold text-emerald-700">{message}</p> : null}
+      </section>
+
+      <section className="admin-panel p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="admin-eyebrow">Connection health</p>
+            <h4 className="admin-title text-lg">Prometheus Connection Status</h4>
+            <p className="mt-1 text-sm text-(--admin-muted)">
+              Simple connectivity check for non-technical users.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+                statusLoading
+                  ? "border-(--admin-line) bg-white"
+                  : status?.connected
+                    ? "border-[rgba(28,140,112,0.55)] bg-[rgba(28,140,112,0.12)]"
+                    : "border-[rgba(190,65,65,0.5)] bg-[rgba(190,65,65,0.12)]"
+              }`}
+            >
+              {statusLoading ? "Checking" : status?.connected ? "Connected" : "Failed"}
+            </span>
+            <button
+              onClick={() => {
+                void loadPrometheusStatus();
+              }}
+              className="rounded-full border border-(--admin-line) bg-white px-3 py-1.5 text-xs font-semibold"
+              disabled={statusLoading}
+            >
+              {statusLoading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 text-xs text-(--admin-muted) sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+            <p className="uppercase tracking-wider">Mode</p>
+            <p className="mt-1 text-sm font-semibold text-(--admin-ink)">{status?.demoMode ? "Demo" : "Real"}</p>
+          </div>
+          <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+            <p className="uppercase tracking-wider">Latency</p>
+            <p className="mt-1 text-sm font-semibold text-(--admin-ink)">
+              {typeof status?.latencyMs === "number" ? `${status.latencyMs} ms` : "-"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+            <p className="uppercase tracking-wider">Result Rows</p>
+            <p className="mt-1 text-sm font-semibold text-(--admin-ink)">
+              {typeof status?.resultCount === "number" ? status.resultCount : "-"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-(--admin-line) bg-white/80 p-3">
+            <p className="uppercase tracking-wider">Last Check</p>
+            <p className="mt-1 text-sm font-semibold text-(--admin-ink)">
+              {status?.checkedAt ? new Date(status.checkedAt).toLocaleTimeString() : "-"}
+            </p>
+          </div>
+        </div>
+
+        {status?.connected === false && status.error ? (
+          <p className="mt-3 text-sm font-semibold text-red-700">{status.error}</p>
+        ) : null}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">

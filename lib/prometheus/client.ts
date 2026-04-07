@@ -1,3 +1,5 @@
+import { queryPrometheusDemoData } from "@/lib/prometheus/demo-data";
+
 type PrometheusDataPoint = [number, string];
 
 type PrometheusVectorResult = {
@@ -16,6 +18,12 @@ type PrometheusResponse = {
 };
 
 export async function queryPrometheus(promQl: string) {
+  const demoMode = process.env.PROMETHEUS_DEMO_MODE?.toLowerCase() === "true";
+
+  if (demoMode) {
+    return queryPrometheusDemoData(promQl);
+  }
+
   const baseUrl = process.env.PROMETHEUS_BASE_URL;
 
   if (!baseUrl) {
