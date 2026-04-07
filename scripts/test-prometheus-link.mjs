@@ -37,13 +37,28 @@ function loadEnvFile(filePath) {
   }
 }
 
-async function query(baseUrl, queryText, bearerToken) {
+function getAuthHeader() {
+  const bearerToken = process.env.PROMETHEUS_BEARER_TOKEN?.trim();
+  if (bearerToken) {
+    return `Bearer ${bearerToken}`;
+  }
+
+  const username = process.env.PROMETHEUS_BASIC_AUTH_USERNAME?.trim();
+  const password = process.env.PROMETHEUS_BASIC_AUTH_PASSWORD;
+  if (username && typeof password === "string") {
+    return `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`;
+  }
+
+  return null;
+}
+
+async function query(baseUrl, queryText, authHeader) {
   const url = new URL("/api/v1/query", baseUrl);
   url.searchParams.set("query", queryText);
 
   const headers = {};
-  if (bearerToken) {
-    headers.Authorization = `Bearer ${bearerToken}`;
+  if (authHeader) {
+    headers.Authorization = authHeader;
   }
 
   const response = await fetch(url, {
@@ -64,7 +79,7 @@ async function run() {
   loadEnvFile(path.resolve(process.cwd(), ".env.local"));
 
   const baseUrl = process.env.PROMETHEUS_BASE_URL;
-  const bearerToken = process.env.PROMETHEUS_BEARER_TOKEN;
+  const authHeader = getAuthHeader();
 
   if (!baseUrl) {
     throw new Error("PROMETHEUS_BASE_URL is missing in .env.local or environment.");
@@ -82,7 +97,7 @@ async function run() {
   const summary = [];
 
   for (const check of checks) {
-    const result = await query(baseUrl, check.query, bearerToken);
+    const result = await query(baseUrl, check.query, authHeader);
     const rows = Array.isArray(result.payload?.data?.result) ? result.payload.data.result.length : 0;
 
     summary.push({

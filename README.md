@@ -68,7 +68,14 @@ PROMETHEUS_DEMO_MODE=false
 PROMETHEUS_BASE_URL=http://localhost:9090
 # Optional if your Prometheus endpoint requires auth:
 PROMETHEUS_BEARER_TOKEN=
+# Optional alternative to bearer token:
+PROMETHEUS_BASIC_AUTH_USERNAME=
+PROMETHEUS_BASIC_AUTH_PASSWORD=
 ```
+
+Prometheus basic-auth guide reference:
+
+- https://prometheus.io/docs/guides/basic-auth/
 
 Then run the direct connectivity test:
 
@@ -82,6 +89,16 @@ The test calls:
 - `/api/v1/query?query=ALERTS`
 
 When this test passes, your dashboards and APIs in this project are ready to use real Prometheus data.
+
+## Internal Prometheus proxy APIs
+
+This project now includes protected internal APIs that proxy Prometheus endpoints:
+
+- `GET /api/prometheus/raw/query?query=up`
+- `GET /api/prometheus/raw/query-range?query=up&start=1710000000&end=1710003600&step=30s`
+- `GET /api/prometheus/raw/targets`
+
+All routes require an authenticated app user with role `admin`, `operator`, or `viewer`.
 
 Typical production building blocks:
 

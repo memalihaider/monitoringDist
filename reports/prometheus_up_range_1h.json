@@ -1,0 +1,1 @@
+{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"__name__":"up","instance":"localhost:9090","job":"prometheus"},"values":[[1775587480,"1"],[1775587540,"1"],[1775587600,"1"],[1775587660,"1"],[1775587720,"1"]]}]}}
