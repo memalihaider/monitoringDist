@@ -45,7 +45,7 @@ type WebsiteEntry = {
   name: string;
   description?: string;
   enabled: boolean;
-  lastCheck?: WebsiteProbeResult;
+  lastCheck?: WebsiteProbeResult | null;
   status: "checking" | "online" | "offline" | "error";
 };
 
@@ -74,15 +74,15 @@ export default function AdminWebsitesPage() {
 
   const checkAllWebsites = useCallback(async () => {
     setIsChecking(true);
-    setWebsites(prev => prev.map(w => ({ ...w, status: "checking" })));
+    setWebsites(prev => prev.map(w => ({ ...w, status: "checking" as const })));
 
-    const results = await Promise.all(
+    const results: WebsiteEntry[] = await Promise.all(
       websites.filter(w => w.enabled).map(async (website) => {
         const result = await checkWebsite(website);
         return {
           ...website,
           lastCheck: result,
-          status: result ? (result.available ? "online" : "offline") : "error" as const,
+          status: result ? (result.available ? "online" as const : "offline" as const) : "error" as const,
         };
       })
     );
