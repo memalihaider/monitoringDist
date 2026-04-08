@@ -16,6 +16,29 @@ function parseFirstPrometheusValue(results: PrometheusVector[] | undefined) {
   return Number.isFinite(value) ? value : null;
 }
 
+function calculateMetrics(servicesUp: number | null, cpuLoad: number | null, memoryUsed: number | null, alertsAcked: number, auditEvents: number) {
+  // Calculate service availability percentage
+  const serviceAvailability = servicesUp !== null ? Math.max(0, Math.min(100, (servicesUp / 5) * 100)) : null;
+  
+  // Calculate system health score (0-100)
+  const healthComponents: number[] = [];
+  if (serviceAvailability !== null) healthComponents.push(serviceAvailability);
+  if (cpuLoad !== null) healthComponents.push(Math.max(0, 100 - cpuLoad));
+  if (memoryUsed !== null) healthComponents.push(Math.max(0, 100 - memoryUsed));
+  const systemHealthScore = healthComponents.length > 0 ? healthComponents.reduce((a, b) => a + b, 0) / healthComponents.length : null;
+  
+  // Calculate alert response score
+  const alertResponseScore = auditEvents > 0 ? Math.min(100, (alertsAcked / auditEvents) * 100) : 100;
+  
+  return {
+    serviceAvailability,
+    systemHealthScore,
+    alertResponseScore,
+    cpuHeadroom: cpuLoad !== null ? Math.max(0, 100 - cpuLoad) : null,
+    memoryHeadroom: memoryUsed !== null ? Math.max(0, 100 - memoryUsed) : null,
+  };
+}
+
 async function countUsers() {
   const auth = getAdminAuth();
   let nextPageToken: string | undefined;
@@ -79,13 +102,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const servicesUpValue = parseFirstPrometheusValue(servicesUp?.result as PrometheusVector[] | undefined);
+    const cpuLoadValue = parseFirstPrometheusValue(cpuLoad?.result as PrometheusVector[] | undefined);
+    const memoryUsedValue = parseFirstPrometheusValue(memoryUsed?.result as PrometheusVector[] | undefined);
+
     const telemetry = {
-      servicesUp: parseFirstPrometheusValue(servicesUp?.result as PrometheusVector[] | undefined),
-      cpuLoadPercent: parseFirstPrometheusValue(cpuLoad?.result as PrometheusVector[] | undefined),
-      memoryUsedPercent: parseFirstPrometheusValue(memoryUsed?.result as PrometheusVector[] | undefined),
+      servicesUp: servicesUpValue,
+      cpuLoadPercent: cpuLoadValue,
+      memoryUsedPercent: memoryUsedValue,
     };
 
+    const calculations = calculateMetrics(
+      servicesUpValue,
+      cpuLoadValue,
+      memoryUsedValue,
+      alertAckSnapshot.size,
+      recentAuditSnapshot.size
+    );
+
+    const totalRoles = roleSnapshot.size;
+    const rolePercentages = totalRoles > 0 ? {
+      admin: (admin / totalRoles) * 100,
+      operator: (operator / totalRoles) * 100,
+      viewer: (viewer / totalRoles) * 100,
+      unassigned: (unassigned / totalRoles) * 100,
+    } : { admin: 0, operator: 0, viewer: 0, unassigned: 0 };
+
     return NextResponse.json({
+      timestamp: new Date().toISOString(),
       totals: {
         users: usersTotal,
         roles: roleSnapshot.size,
@@ -99,7 +143,9 @@ export async function GET(request: NextRequest) {
         viewer,
         unassigned,
       },
+      rolePercentages,
       telemetry,
+      calculations,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";

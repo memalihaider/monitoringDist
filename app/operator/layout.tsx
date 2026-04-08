@@ -7,6 +7,7 @@ import {
   BellRing,
   BookOpen,
   FileText,
+  Globe,
   LayoutDashboard,
   Server,
   Settings,
@@ -44,6 +45,12 @@ const navSections: PortalNavSection[] = [
         label: "Services",
         description: "Service registry and uptime checks.",
         icon: Server,
+      },
+      {
+        href: "/operator/websites",
+        label: "Websites",
+        description: "Website performance and uptime monitoring.",
+        icon: Globe,
       },
       {
         href: "/operator/reports",

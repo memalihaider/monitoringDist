@@ -13,6 +13,7 @@ import {
   Database,
   FileText,
   Gauge,
+  Globe,
   LayoutDashboard,
   LogOut,
   Target,
@@ -83,6 +84,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Prometheus",
         description: "Query core telemetry streams.",
         icon: Activity,
+      },
+      {
+        href: "/admin/websites",
+        label: "Websites",
+        description: "Monitor website performance and uptime.",
+        icon: Globe,
       },
       {
         href: "/admin/data-fetch",

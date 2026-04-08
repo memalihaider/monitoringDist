@@ -13,9 +13,13 @@ import {
   ShieldCheck,
   UserCog,
   Users,
+  TrendingUp,
+  Clock,
+  Zap,
 } from "lucide-react";
 
 type OverviewResponse = {
+  timestamp: string;
   totals: {
     users: number;
     roles: number;
@@ -29,10 +33,23 @@ type OverviewResponse = {
     viewer: number;
     unassigned: number;
   };
+  rolePercentages: {
+    admin: number;
+    operator: number;
+    viewer: number;
+    unassigned: number;
+  };
   telemetry: {
     servicesUp: number | null;
     cpuLoadPercent: number | null;
     memoryUsedPercent: number | null;
+  };
+  calculations: {
+    serviceAvailability: number | null;
+    systemHealthScore: number | null;
+    alertResponseScore: number;
+    cpuHeadroom: number | null;
+    memoryHeadroom: number | null;
   };
 };
 
@@ -41,6 +58,20 @@ function formatMetric(value: number | null, suffix = "") {
     return "N/A";
   }
   return `${value.toFixed(1)}${suffix}`;
+}
+
+function getHealthColor(score: number | null) {
+  if (score === null) return "bg-gray-100";
+  if (score >= 80) return "bg-green-100";
+  if (score >= 60) return "bg-yellow-100";
+  return "bg-red-100";
+}
+
+function getHealthTextColor(score: number | null) {
+  if (score === null) return "text-gray-800";
+  if (score >= 80) return "text-green-800";
+  if (score >= 60) return "text-yellow-800";
+  return "text-red-800";
 }
 
 export default function AdminDashboardPage() {
@@ -216,19 +247,22 @@ export default function AdminDashboardPage() {
       <section className="grid gap-6 lg:grid-cols-3">
         <div className="admin-panel p-6">
           <div className="flex items-center justify-between">
-            <h4 className="admin-title text-lg">Telemetry snapshot</h4>
-            <Gauge className="h-5 w-5 text-(--admin-muted)" />
+            <h4 className="admin-title text-lg">Last metrics</h4>
+            <Clock className="h-5 w-5 text-(--admin-muted)" />
+          </div>
+          <div className="mt-2 text-xs text-(--admin-muted)">
+            Last checked: {data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "N/A"}
           </div>
           <div className="mt-4 space-y-3 text-sm">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between rounded-lg bg-blue-50 p-2">
               <span className="text-(--admin-muted)">Services up</span>
-              <span className="font-semibold">{formatMetric(data.telemetry.servicesUp)}</span>
+              <span className="font-semibold">{formatMetric(data.telemetry.servicesUp)} / 5</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between rounded-lg bg-purple-50 p-2">
               <span className="text-(--admin-muted)">CPU load</span>
               <span className="font-semibold">{formatMetric(data.telemetry.cpuLoadPercent, "%")}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between rounded-lg bg-orange-50 p-2">
               <span className="text-(--admin-muted)">Memory used</span>
               <span className="font-semibold">{formatMetric(data.telemetry.memoryUsedPercent, "%")}</span>
             </div>
@@ -243,25 +277,86 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="admin-panel p-6">
+          <div className="flex items-center justify-between">
+            <h4 className="admin-title text-lg">Calculations</h4>
+            <TrendingUp className="h-5 w-5 text-(--admin-muted)" />
+          </div>
+          <div className="mt-4 space-y-3 text-sm">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-(--admin-muted)">Service availability</span>
+                <span className="font-semibold">{formatMetric(data.calculations.serviceAvailability, "%")}</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-gray-200">
+                <div
+                  className="h-2 rounded-full bg-blue-500 transition-all"
+                  style={{ width: `${Math.min(data.calculations.serviceAvailability ?? 0, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-(--admin-muted)">Alert response rate</span>
+                <span className="font-semibold">{formatMetric(data.calculations.alertResponseScore, "%")}</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-gray-200">
+                <div
+                  className="h-2 rounded-full bg-green-500 transition-all"
+                  style={{ width: `${Math.min(data.calculations.alertResponseScore, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={`admin-panel p-6 ${getHealthColor(data.calculations.systemHealthScore)}`}>
+          <div className="flex items-center justify-between">
+            <h4 className={`admin-title text-lg ${getHealthTextColor(data.calculations.systemHealthScore)}`}>
+              System health score
+            </h4>
+            <Zap className={`h-5 w-5 ${getHealthTextColor(data.calculations.systemHealthScore)}`} />
+          </div>
+          <p className={`mt-2 text-xs ${getHealthTextColor(data.calculations.systemHealthScore)}`}>
+            Overall infrastructure health
+          </p>
+          <div className="mt-4">
+            <div className={`text-4xl font-bold ${getHealthTextColor(data.calculations.systemHealthScore)}`}>
+              {formatMetric(data.calculations.systemHealthScore)}
+            </div>
+            <div className="mt-2 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span>CPU headroom</span>
+                <span className="font-semibold">{formatMetric(data.calculations.cpuHeadroom, "%")}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Memory headroom</span>
+                <span className="font-semibold">{formatMetric(data.calculations.memoryHeadroom, "%")}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="grid gap-6 lg:grid-cols-3">
+        <div className="admin-panel p-6">
           <h4 className="admin-title text-lg">Role distribution</h4>
           <div className="mt-4 space-y-3 text-sm">
             {(
               [
-                { label: "Admin", value: data.roles.admin, tone: "bg-(--admin-ink)" },
-                { label: "Operator", value: data.roles.operator, tone: "bg-(--admin-accent)" },
-                { label: "Viewer", value: data.roles.viewer, tone: "bg-(--admin-accent-3)" },
-                { label: "Unassigned", value: data.roles.unassigned, tone: "bg-(--admin-accent-2)" },
+                { label: "Admin", value: data.roles.admin, percentage: data.rolePercentages.admin, tone: "bg-(--admin-ink)" },
+                { label: "Operator", value: data.roles.operator, percentage: data.rolePercentages.operator, tone: "bg-(--admin-accent)" },
+                { label: "Viewer", value: data.roles.viewer, percentage: data.rolePercentages.viewer, tone: "bg-(--admin-accent-3)" },
+                { label: "Unassigned", value: data.roles.unassigned, percentage: data.rolePercentages.unassigned, tone: "bg-(--admin-accent-2)" },
               ] as const
             ).map((entry) => (
               <div key={entry.label}>
                 <div className="flex items-center justify-between">
                   <span className="text-(--admin-muted)">{entry.label}</span>
-                  <span className="font-semibold">{entry.value}</span>
+                  <span className="font-semibold">{entry.value} ({formatMetric(entry.percentage, "%")})</span>
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-[rgba(20,21,21,0.08)]">
                   <div
                     className={`h-2 rounded-full ${entry.tone}`}
-                    style={{ width: `${Math.min(entry.value * 12, 100)}%` }}
+                    style={{ width: `${Math.min(entry.percentage, 100)}%` }}
                   />
                 </div>
               </div>

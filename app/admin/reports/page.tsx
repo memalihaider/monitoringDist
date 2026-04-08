@@ -31,6 +31,15 @@ type ReportsResponse = {
   error?: string;
 };
 
+type MonitoringProject = {
+  id: string;
+  name: string;
+};
+
+type ProjectsResponse = {
+  projects?: MonitoringProject[];
+};
+
 type ReportForm = {
   id: string;
   title: string;
@@ -59,11 +68,13 @@ const EMPTY_FORM: ReportForm = {
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState<ReportEntry[]>([]);
+  const [projects, setProjects] = useState<MonitoringProject[]>([]);
   const [canDelete, setCanDelete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
   const [formatFilter, setFormatFilter] = useState<"All" | "PDF" | "CSV">("All");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -73,14 +84,21 @@ export default function AdminReportsPage() {
     setError(null);
 
     try {
-      const response = await authenticatedFetch("/api/admin/reports");
-      const result = (await response.json()) as ReportsResponse;
-      if (!response.ok) {
+      const [reportsResponse, projectsResponse] = await Promise.all([
+        authenticatedFetch("/api/admin/reports"),
+        authenticatedFetch("/api/admin/monitoring-projects"),
+      ]);
+
+      const result = (await reportsResponse.json()) as ReportsResponse;
+      const projectsResult = (await projectsResponse.json()) as ProjectsResponse;
+
+      if (!reportsResponse.ok) {
         throw new Error(result.error ?? "Failed to load reports");
       }
 
       setReports(result.reports ?? []);
       setCanDelete(result.canDelete === true);
+      setProjects(projectsResult.projects ?? []);
     } catch (nextError) {
       const nextMessage = nextError instanceof Error ? nextError.message : "Failed to load reports";
       setError(nextMessage);
@@ -235,12 +253,18 @@ export default function AdminReportsPage() {
   }
 
   const visibleReports = useMemo(() => {
-    if (formatFilter === "All") return reports;
-    if (formatFilter === "CSV") {
-      return reports.filter((report) => report.format === "csv");
+    let filtered = reports;
+
+    if (projectFilter !== "all") {
+      filtered = filtered.filter((report) => report.projectId === projectFilter);
     }
-    return reports.filter((report) => report.format !== "csv");
-  }, [formatFilter, reports]);
+
+    if (formatFilter === "All") return filtered;
+    if (formatFilter === "CSV") {
+      return filtered.filter((report) => report.format === "csv");
+    }
+    return filtered.filter((report) => report.format !== "csv");
+  }, [formatFilter, projectFilter, reports]);
 
   return (
     <div className="space-y-6">
@@ -279,17 +303,31 @@ export default function AdminReportsPage() {
       <section className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
         <div className="admin-panel p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <button
-              onClick={() =>
-                setFormatFilter((current) =>
-                  current === "All" ? "PDF" : current === "PDF" ? "CSV" : "All",
-                )
-              }
-              className="inline-flex items-center gap-2 rounded-full border border-(--admin-line) bg-white px-4 py-2 text-xs font-semibold"
-            >
-              <Filter className="h-4 w-4" />
-              Filter: {formatFilter}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() =>
+                  setFormatFilter((current) =>
+                    current === "All" ? "PDF" : current === "PDF" ? "CSV" : "All",
+                  )
+                }
+                className="inline-flex items-center gap-2 rounded-full border border-(--admin-line) bg-white px-4 py-2 text-xs font-semibold"
+              >
+                <Filter className="h-4 w-4" />
+                Format: {formatFilter}
+              </button>
+              <select
+                className="rounded-full border border-(--admin-line) bg-white px-3 py-2 text-xs font-semibold"
+                value={projectFilter}
+                onChange={(event) => setProjectFilter(event.target.value)}
+              >
+                <option value="all">All Projects</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               onClick={() => {
                 void loadReports();
@@ -320,6 +358,9 @@ export default function AdminReportsPage() {
                         <p className="text-xs text-(--admin-muted)">
                           {report.description || "No description"}
                         </p>
+                        {report.projectName ? (
+                          <p className="mt-1 text-xs font-semibold text-(--admin-ink)">Project: {report.projectName}</p>
+                        ) : null}
                         <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                           <span className="rounded-full border border-(--admin-line) px-2 py-0.5 uppercase">
                             {report.format}
@@ -413,6 +454,11 @@ export default function AdminReportsPage() {
                       Generated: {report.generatedAt ? new Date(report.generatedAt).toLocaleString() : "Not yet"}
                     </span>
                   </div>
+                  {report.generatedPreview ? (
+                    <pre className="mt-3 max-h-28 overflow-auto rounded-xl border border-(--admin-line) bg-white p-3 text-[11px] text-(--admin-ink)">
+                      {report.generatedPreview}
+                    </pre>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -454,6 +500,25 @@ export default function AdminReportsPage() {
               value={form.queryKey}
               onChange={(event) => setForm((prev) => ({ ...prev, queryKey: event.target.value }))}
             />
+            <select
+              className="w-full rounded-xl border border-(--admin-line) bg-white px-3 py-2 text-sm"
+              value={form.projectId}
+              onChange={(event) => {
+                const selected = projects.find((project) => project.id === event.target.value);
+                setForm((prev) => ({
+                  ...prev,
+                  projectId: event.target.value,
+                  projectName: selected?.name ?? "",
+                }));
+              }}
+            >
+              <option value="">No project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
             <select
               className="w-full rounded-xl border border-(--admin-line) bg-white px-3 py-2 text-sm"
               value={form.format}
