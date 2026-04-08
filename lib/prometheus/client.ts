@@ -95,8 +95,19 @@ async function callPrometheusApi(pathname: string, params: Record<string, string
 
 export async function queryPrometheus(promQl: string) {
   const demoMode = process.env.PROMETHEUS_DEMO_MODE?.toLowerCase() === "true";
+  const baseUrl = process.env.PROMETHEUS_BASE_URL;
 
-  if (demoMode) {
+  // Auto-enable demo mode if:
+  // 1. Base URL is localhost/127.0.0.1 (development only)
+  // 2. Base URL is not set
+  // 3. We're in production and base URL points to localhost
+  const shouldUseDemoMode = demoMode ||
+    !baseUrl ||
+    baseUrl.includes("localhost") ||
+    baseUrl.includes("127.0.0.1") ||
+    (process.env.NODE_ENV === "production" && baseUrl === "http://localhost:9090");
+
+  if (shouldUseDemoMode) {
     return queryPrometheusDemoData(promQl);
   }
 
@@ -108,6 +119,24 @@ export async function queryPrometheus(promQl: string) {
 }
 
 export async function queryPrometheusRange(promQl: string, start: number, end: number, step: string | number) {
+  const demoMode = process.env.PROMETHEUS_DEMO_MODE?.toLowerCase() === "true";
+  const baseUrl = process.env.PROMETHEUS_BASE_URL;
+
+  // Auto-enable demo mode if:
+  // 1. Base URL is localhost/127.0.0.1 (development only)
+  // 2. Base URL is not set
+  // 3. We're in production and base URL points to localhost
+  const shouldUseDemoMode = demoMode ||
+    !baseUrl ||
+    baseUrl.includes("localhost") ||
+    baseUrl.includes("127.0.0.1") ||
+    (process.env.NODE_ENV === "production" && baseUrl === "http://localhost:9090");
+
+  if (shouldUseDemoMode) {
+    // For demo mode, return a single data point (range queries not supported in demo)
+    return queryPrometheusDemoData(promQl);
+  }
+
   const data = await callPrometheusApi("/api/v1/query_range", {
     query: promQl,
     start: String(start),
