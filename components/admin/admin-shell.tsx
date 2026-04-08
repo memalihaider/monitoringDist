@@ -86,12 +86,6 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Activity,
       },
       {
-        href: "/admin/websites",
-        label: "Websites",
-        description: "Monitor website performance and uptime.",
-        icon: Globe,
-      },
-      {
         href: "/admin/data-fetch",
         label: "Data Fetch",
         description: "Run Prometheus and Firestore pulls.",
