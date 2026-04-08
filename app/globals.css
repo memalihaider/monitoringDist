@@ -81,6 +81,13 @@ body.mobile-menu-open {
   box-shadow: 0 22px 42px rgba(20, 21, 21, 0.12);
 }
 
+.admin-card {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(20, 21, 21, 0.08);
+}
+
 .admin-chip {
   display: inline-flex;
   align-items: center;
@@ -93,6 +100,69 @@ body.mobile-menu-open {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--admin-muted);
+}
+
+.admin-button-primary {
+  background: var(--admin-accent);
+  color: white;
+  border: 1px solid var(--admin-accent);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.admin-button-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: 0 4px 12px rgba(28, 140, 112, 0.2);
+}
+
+.admin-button-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-button-secondary {
+  background: transparent;
+  color: var(--admin-ink);
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.admin-button-secondary:hover:not(:disabled) {
+  background: var(--admin-panel);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+}
+
+.admin-button-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-input {
+  background: transparent;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  padding: 0.625rem 0.875rem;
+  font-family: inherit;
+  color: var(--admin-ink);
+  transition: all 200ms ease;
+}
+
+.admin-input::placeholder {
+  color: var(--admin-muted);
+}
+
+.admin-input:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px rgba(28, 140, 112, 0.1);
 }
 
 .admin-background {

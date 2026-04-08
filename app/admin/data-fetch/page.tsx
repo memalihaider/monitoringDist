@@ -45,6 +45,43 @@ type ProjectsResponse = {
   projects?: MonitoringProject[];
 };
 
+type GraphPoint = {
+  label: string;
+  value: number;
+};
+
+function collectNumericValues(input: unknown): number[] {
+  if (typeof input === "number" && Number.isFinite(input)) {
+    return [input];
+  }
+
+  if (typeof input === "string") {
+    const numericMatches = input.match(/-?\d+(?:\.\d+)?/g);
+    return numericMatches ? numericMatches.map((value) => Number(value)).filter(Number.isFinite) : [];
+  }
+
+  if (Array.isArray(input)) {
+    return input.flatMap(collectNumericValues);
+  }
+
+  if (input && typeof input === "object") {
+    return Object.values(input).flatMap(collectNumericValues);
+  }
+
+  return [];
+}
+
+function buildGraphData(preview: string): GraphPoint[] {
+  try {
+    const parsed = JSON.parse(preview);
+    const numbers = collectNumericValues(parsed);
+    return numbers.map((value, index) => ({ label: `${index + 1}`, value }));
+  } catch {
+    const numbers = collectNumericValues(preview);
+    return numbers.map((value, index) => ({ label: `${index + 1}`, value }));
+  }
+}
+
 const COLLECTION_OPTIONS = [
   "admin_services",
   "admin_docs",
@@ -153,6 +190,68 @@ export default function AdminDataFetchPage() {
     () => jobs.find((job) => job.id === selectedJobId) ?? jobs[0] ?? null,
     [jobs, selectedJobId],
   );
+
+  const previewGraphData = useMemo(() => {
+    if (!selectedJob?.preview) {
+      return [] as GraphPoint[];
+    }
+    return buildGraphData(selectedJob.preview).slice(0, 40);
+  }, [selectedJob]);
+
+  const graphStats = useMemo(() => {
+    if (previewGraphData.length === 0) {
+      return null;
+    }
+    const values = previewGraphData.map((point) => point.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const avg = values.reduce((sum, next) => sum + next, 0) / values.length;
+    return { min, max, avg };
+  }, [previewGraphData]);
+
+  const graphSvgData = useMemo(() => {
+    if (previewGraphData.length === 0) {
+      return [] as Array<{ x: number; y: number; label: string; value: number }>;
+    }
+
+    const values = previewGraphData.map((point) => point.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max === min ? 1 : max - min;
+
+    return previewGraphData.map((point, index) => {
+      const ratio = previewGraphData.length === 1 ? 0.5 : index / (previewGraphData.length - 1);
+      const x = 10 + ratio * 80;
+      const y = 88 - ((point.value - min) / range) * 72;
+      return { x, y, label: point.label, value: point.value };
+    });
+  }, [previewGraphData]);
+
+  const graphPoints = useMemo(() => {
+    return graphSvgData.map((point) => `${point.x},${point.y}`).join(" ");
+  }, [graphSvgData]);
+
+  const graphArea = useMemo(() => {
+    if (graphSvgData.length === 0) {
+      return "";
+    }
+    const points = graphSvgData.map((point) => `${point.x},${point.y}`).join(" ");
+    return `10,88 ${points} 90,88`;
+  }, [graphSvgData]);
+
+  const xAxisHints = useMemo(() => {
+    if (graphSvgData.length === 0) {
+      return [] as string[];
+    }
+    const first = graphSvgData[0].label;
+    const middle = graphSvgData[Math.floor((graphSvgData.length - 1) / 2)]?.label;
+    const last = graphSvgData[graphSvgData.length - 1].label;
+    return [first, middle, last].filter(Boolean);
+  }, [graphSvgData]);
+
+  const graphDescription = selectedJob
+    ? `${selectedJob.source === "prometheus" ? "Prometheus" : "Firestore"} preview values extracted from the raw fetch output. The graph shows the first ${graphSvgData.length} numeric values in the preview data.`
+    : "";
 
   return (
     <div className="space-y-6">
@@ -339,7 +438,72 @@ export default function AdminDataFetchPage() {
             {selectedJob.projectName ? (
               <p className="mt-1 text-xs font-semibold text-(--admin-ink)">Project: {selectedJob.projectName}</p>
             ) : null}
-            <pre className="mt-3 max-h-90 overflow-auto rounded-2xl border border-(--admin-line) bg-white p-4 text-xs text-(--admin-ink)">
+            {previewGraphData.length > 0 ? (
+              <div className="mt-4 rounded-2xl border border-(--admin-line) bg-white p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between text-xs text-(--admin-muted)">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-(--admin-ink)">Preview graph</p>
+                    <p>{graphDescription}</p>
+                  </div>
+                  {graphStats ? (
+                    <div className="grid grid-cols-3 gap-3 text-right sm:text-left text-[11px]">
+                      <div className="rounded-2xl bg-(--admin-bg) px-3 py-2">
+                        <p className="font-semibold text-(--admin-ink)">Min</p>
+                        <p>{graphStats.min.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-2xl bg-(--admin-bg) px-3 py-2">
+                        <p className="font-semibold text-(--admin-ink)">Avg</p>
+                        <p>{graphStats.avg.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-2xl bg-(--admin-bg) px-3 py-2">
+                        <p className="font-semibold text-(--admin-ink)">Max</p>
+                        <p>{graphStats.max.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-4 overflow-hidden rounded-2xl bg-(--admin-bg) p-3">
+                  <svg className="h-44 w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="previewGraphGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#1c8c70" stopOpacity="0.28" />
+                        <stop offset="100%" stopColor="#1c8c70" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <g stroke="#d1d5db" strokeWidth="0.2">
+                      <line x1="10" y1="20" x2="90" y2="20" />
+                      <line x1="10" y1="36" x2="90" y2="36" />
+                      <line x1="10" y1="52" x2="90" y2="52" />
+                      <line x1="10" y1="68" x2="90" y2="68" />
+                      <line x1="10" y1="84" x2="90" y2="84" />
+                    </g>
+                    <path d={`M${graphArea}`} fill="url(#previewGraphGradient)" />
+                    <polyline
+                      fill="none"
+                      stroke="#1c8c70"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      points={graphPoints}
+                    />
+                    {graphSvgData.map((point, index) => (
+                      <circle key={index} cx={point.x} cy={point.y} r="2.5" fill="#1c8c70" />
+                    ))}
+                    <text x="10" y="18" fontSize="4.5" fill="#4b5563">{graphStats?.max.toFixed(2)}</text>
+                    <text x="10" y="88" fontSize="4.5" fill="#4b5563">{graphStats?.min.toFixed(2)}</text>
+                  </svg>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-3 text-[11px] text-(--admin-muted)">
+                  {xAxisHints.map((label, index) => (
+                    <div key={index} className="truncate rounded-2xl bg-(--admin-bg) px-3 py-2">
+                      <p className="font-semibold text-(--admin-ink)">{index === 0 ? "Start" : index === xAxisHints.length - 1 ? "End" : "Middle"}</p>
+                      <p>{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <pre className="mt-4 max-h-90 overflow-auto rounded-2xl border border-(--admin-line) bg-white p-4 text-xs text-(--admin-ink)">
               {selectedJob.preview || selectedJob.error || "No preview available"}
             </pre>
           </>

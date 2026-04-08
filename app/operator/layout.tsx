@@ -47,12 +47,6 @@ const navSections: PortalNavSection[] = [
         icon: Server,
       },
       {
-        href: "/operator/websites",
-        label: "Websites",
-        description: "Website performance and uptime monitoring.",
-        icon: Globe,
-      },
-      {
         href: "/operator/reports",
         label: "Reports",
         description: "Generate readiness and SLA briefs.",
